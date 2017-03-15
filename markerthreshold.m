@@ -23,14 +23,14 @@ h1 = imshow(im2show, []);
 set(gcf,'Name', text);
 
 % Add slider
-hsl = uicontrol('Style', 'Slider','Position', [50 20 320 20],...
+hsl = uicontrol('Style', 'Slider','Position', [50 20 320 30],...
     'Min',1, 'Max', length(ROIrank),'Value',1,...
     'SliderStep',[1/length(ROIrank) 10/length(ROIrank)],...
     'Callback', @changeroi);
 
 % Add a button
 hbt =  uicontrol('Style', 'pushbutton', 'String', 'Confirm',...
-    'Position', [400, 20, 80, 20], 'Callback', @confirmcurrent);
+    'Position', [400, 20, 80, 30], 'Callback', @confirmcurrent);
 
     function changeroi(source,~)
         im2show(:,:,1) = (ROIstack == ROIrank(round(source.Value)))*0.5;

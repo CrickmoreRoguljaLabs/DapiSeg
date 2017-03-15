@@ -3,6 +3,7 @@
 Smooththresh = 1; % Determine if smooth threshold or not
 Automarkerthresh = 0; % If automatedly determine marker threshold
 
+firstslice2read = 3; % First slice to read
 maxnslices = 15; % Only consider first X slides.
 openclose = 5; % Size to use for imopen
 backgroundsize = 10; % Size to use for background subtraction
@@ -18,13 +19,14 @@ Commonfilapath = 'D:\Dropbox\Crickmore_research\Images\Lim1\mouse brain 3-full S
 
 % Grab file names
 [Dapifile, filepath] = uigetfile(fullfile(Commonfilapath,'*.tif'), 'Dapi file:');
-Marker1file = uigetfile(fullfile(Commonfilapath,'*.tif'), Marker1);
-Marker2file = uigetfile(fullfile(Commonfilapath,'*.tif'), Marker2);
+Marker1file = uigetfile(fullfile(filepath,'*.tif'), Marker1);
+Marker2file = uigetfile(fullfile(filepath,'*.tif'), Marker2);
 
 % Determine slice numbers
 fileinfo = imfinfo(fullfile(filepath,Dapifile));
-nslices = min(maxnslices, size(fileinfo,1));
+lastslice2read = min(maxnslices, size(fileinfo,1));
 imgsize = [fileinfo(1).Width, fileinfo(1).Height];
+nslices = lastslice2read - firstslice2read + 1;
 
 % Prime the stacks
 Dapistack = zeros(imgsize(2), imgsize(1), nslices);
@@ -36,9 +38,12 @@ Dapireg = Dapistack;
 
 % Read the files
 for i = 1 : nslices
-    Dapistack(:,:,i) = imread(fullfile(filepath, Dapifile), i);
-    Marker1stack(:,:,i) = imread(fullfile(filepath, Marker1file), i);
-    Marker2stack(:,:,i) = imread(fullfile(filepath, Marker2file), i);
+    Dapistack(:,:,i) = imread(fullfile(filepath, Dapifile), ...
+        firstslice2read + i - 1);
+    Marker1stack(:,:,i) = imread(fullfile(filepath, Marker1file), ...
+        firstslice2read + i - 1);
+    Marker2stack(:,:,i) = imread(fullfile(filepath, Marker2file), ...
+        firstslice2read + i - 1);
 end
 
 %% Segmentate Dapi
@@ -58,7 +63,7 @@ for ii = 1 : nslices
     dapiopen = imopen(Dapistack(:,:,ii), strel('disk', openclose));
     
     % Calculate a threshold
-    [thresholdvalue, areamin] = thresholdgradient(dapiopen, [200, 800]);
+    [thresholdvalue, areamin] = thresholdgradient(dapiopen, [200, 700]);
     
     % Apply thresholds
     dapiroi = dapiopen >= thresholdvalue;
@@ -140,7 +145,7 @@ for ii = 1 : nslices
     % Prime Pixel-value vector
     M1pix = zeros(n_areas , 1);
     M2pix = zeros(n_areas , 1);
-
+    
     for i = 1 : n_areas
         % Calculate pixel values for both
         M1pix(i) = mean(M1_nobg(Dapireg(:,:,ii) == i));
@@ -205,6 +210,8 @@ if Smooththresh == 1
 end
 
 %% Consolidate data
+
+
 % Total number of ROIs
 NROIs_master = squeeze(max(max(Dapireg,[],1),[],2));
 
@@ -213,6 +220,7 @@ M1pix_master = zeros(sum(NROIs_master,1),1);
 M2pix_master = zeros(sum(NROIs_master,1),1);
 M1positive_master = zeros(sum(NROIs_master,1),1);
 M2positive_master = zeros(sum(NROIs_master,1),1);
+Centroids_master = zeros(sum(NROIs_master,1),2);
 
 % Book-keeping matrices
 M1_cellind_master = zeros(sum(NROIs_master,1),1);
@@ -249,6 +257,10 @@ for ii = 1 : nslices
       
     end
     
+    % Centroids
+    Centroids = regionprops(Dapireg(:,:,ii),'Centroid');
+    Centroids_master(istart:iend,:) = round(cell2mat({Centroids.Centroid}'));
+    
     % Book keeping
     M1_cellind_master(istart:iend) = 1 : NROIs_master(ii);
     M1_slice_master(istart:iend) = ii;
@@ -265,9 +277,22 @@ if Automarkerthresh == 1
     M2positive_master = M2pix_master >= M1thresh_auto;
 end
 
-% Master data matrix
-Master_data_mat = [M1_slice_master, M1_cellind_master, M1pix_master,...
-    M2pix_master, M1positive_master, M2positive_master];
+
+%% Make centroid map
+
+% Define brain region with a polygon
+polyroi = getpoly(max(Dapistack,[],3));
+
+% Determine if a centroid is in the polygon or not
+inpoly_master = zeros(sum(NROIs_master,1),1);
+
+for i = 1 : sum(NROIs_master,1)
+    inpoly_master(i) = polyroi(Centroids_master(i,2), Centroids_master(i,1));    
+end
+
+%% Master data matrix
+Master_data_mat = [M1_slice_master, M1_cellind_master, Centroids_master, M1pix_master,...
+    M2pix_master, inpoly_master, M1positive_master, M2positive_master];
 
 %% Make plot
 % scatter(mat2gray(M1pix_master), mat2gray(M2pix_master), [],...
@@ -300,3 +325,7 @@ if Smooththresh == 1
 else
     Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh, M2thresh, NROIs_master)
 end
+
+%% Save
+savefileid = fullfile(filepath,[Dapifile(1:end-3),'mat'])
+save(savefileid);

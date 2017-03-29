@@ -15,9 +15,10 @@ rank2show = 1;
 % Make RGB
 im2show = repmat(mat2gray(Markerstack), [1 1 3]);
 im2show(:,:,3) = 0;
+im2show(:,:,2) = im2show(:,:,2) + 0.2;
 im2show(:,:,1) = (ROIstack == ROIrank(rank2show))*0.5;
 
-figure('Position', [50, 50, 1400, 700])
+figure('Position', [0, 50, 700, 500])
 h1 = imshow(im2show, []);
 
 set(gcf,'Name', text);
@@ -35,6 +36,8 @@ hbt =  uicontrol('Style', 'pushbutton', 'String', 'Confirm',...
     function changeroi(source,~)
         im2show(:,:,1) = (ROIstack == ROIrank(round(source.Value)))*0.5;
         h1.CData = im2show;
+        
+        set(hbt, 'string', [num2str(round(source.Value)), ' Confirm']);
     end
 
     function confirmcurrent(~,~)

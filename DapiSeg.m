@@ -1,14 +1,14 @@
 %% Parameters
 
-Smooththresh = 1; % Determine if smooth threshold or not
+Smooththresh = 0; % Determine if smooth threshold or not
 Automarkerthresh = 0; % If automatedly determine marker threshold
 
-firstslice2read = 3; % First slice to read
-maxnslices = 15; % Only consider first X slides.
+firstslice2read = 4; % First slice to read
+maxnslices = 17; % Only consider first X slides.
 openclose = 5; % Size to use for imopen
-backgroundsize = 10; % Size to use for background subtraction
+backgroundsize = 6; % Size to use for background subtraction
 overlaptreshold = 0.5; % Fraction overlap to be considered the same cell
-overlapretro = 10; % Use the past N slices for overlap considerations
+overlapretro = 7; % Use the past N slices for overlap considerations
 
 Marker1 = 'LMO';
 Marker2 = 'LHX1';
@@ -45,6 +45,25 @@ for i = 1 : nslices
     Marker2stack(:,:,i) = imread(fullfile(filepath, Marker2file), ...
         firstslice2read + i - 1);
 end
+
+%% Histogram scaling
+
+M1scale = median(median(Marker1stack,1),2);
+M2scale = median(median(Marker2stack,1),2);
+
+M1scale = M1scale/M1scale(1);
+M2scale = M2scale/M2scale(1);
+
+M1scale_mat = repmat(M1scale,[imgsize(2),imgsize(1),1]);
+M2scale_mat = repmat(M2scale,[imgsize(2),imgsize(1),1]);
+
+Marker1stack_scaled = Marker1stack .* M1scale_mat;
+Marker2stack_scaled = Marker2stack .* M2scale_mat;
+
+plot(squeeze(M1scale))
+figure
+plot(squeeze(M2scale))
+
 
 %% Segmentate Dapi
 
@@ -120,24 +139,27 @@ end
 close(hwait)
 
 %% Prime pixel values for markers
-
-% Prime a threshold vector
-M1thresh = zeros(nslices, 1);
-M2thresh = zeros(nslices, 1);
-
-% Prime cells to contain pixel values
+% 
+% % Prime a threshold vector
+M1thresh = 0;
+M2thresh = 0;
+% 
+% % Prime cells to contain pixel values
 M1pix_cell = cell(nslices, 1);
 M2pix_cell = cell(nslices, 1);
 
 %% Calculate pixel values for markers
+
+
+
 for ii = 1 : nslices
 
     % flatten backgrounds
-    M1bg = imopen(Marker1stack(:,:,ii), strel('disk', backgroundsize));
-    M2bg = imopen(Marker2stack(:,:,ii), strel('disk', backgroundsize));
+    M1bg = imopen(Marker1stack_scaled(:,:,ii), strel('disk', backgroundsize));
+    M2bg = imopen(Marker2stack_scaled(:,:,ii), strel('disk', backgroundsize));
 
-    M1_nobg = Marker1stack(:,:,ii) - M1bg;
-    M2_nobg = Marker2stack(:,:,ii) - M2bg;
+    M1_nobg = Marker1stack_scaled(:,:,ii) - M1bg;
+    M2_nobg = Marker2stack_scaled(:,:,ii) - M2bg;
 
     % Determine the number of ROIs
     n_areas = max(max(Dapireg(:,:,ii)));
@@ -151,63 +173,83 @@ for ii = 1 : nslices
         M1pix(i) = mean(M1_nobg(Dapireg(:,:,ii) == i));
         M2pix(i) = mean(M2_nobg(Dapireg(:,:,ii) == i));
     end
-
-    % Establish pixel intensity order
-    [M1pix_sorted , M1order] = sort(M1pix, 1, 'descend');
-    [M2pix_sorted , M2order] = sort(M2pix, 1, 'descend');
     
-    % Use antomated or manual ways to determine threshold
-    if Automarkerthresh == 1
-        % mean + 2 std
-        % M1thresh(ii) = mean(M1_nobg(:)) + 1.5 * std(M1_nobg(:));
-        % M2thresh(ii) = mean(M1_nobg(:)) + 1.5 * std(M2_nobg(:));;
+    if ii == 1
+        % Establish pixel intensity order
+        [M1pix_sorted , M1order] = sort(M1pix, 1, 'descend');
+        [M2pix_sorted , M2order] = sort(M2pix, 1, 'descend');
+
+        % Plot pixel intensities
+        % Initialize parent
+        fM1 = figure('name','Marker 1','Position',[650 100 600, 400]);
+        plot(1:n_areas, M1pix_sorted,'-o');
+        xlabel('Slices')
+        grid on
+
+        fM2 = figure('name','Marker 2','Position',[1300 100 600, 400]);
+        plot(1:n_areas, M2pix_sorted,'-o');
+        xlabel('Slices')
+        grid on
+    
+    
+    
+        % Use antomated or manual ways to determine threshold
+        if Automarkerthresh == 1
+            % mean + 2 std
+            % M1thresh(ii) = mean(M1_nobg(:)) + 1.5 * std(M1_nobg(:));
+            % M2thresh(ii) = mean(M1_nobg(:)) + 1.5 * std(M2_nobg(:));;
+
+        else
+            % Manual
+            if M1thresh <= 0
+                figurename = ['Slice ', num2str(ii), ' - Marker 1'];
+
+                % Manually find threshold if needed
+                if max(max(Dapireg(:,:,ii))) > 0
+                    markerthreshold(Marker1stack_scaled(:,:,ii), Dapireg(:,:,ii),...
+                        M1order, figurename);
+                    uiwait()
+                    M1thresh = M1pix_sorted(lastpositive + 1);
+
+                end
+
+
+            end
+
+            if M2thresh <= 0
+                figurename = ['Slice ', num2str(ii), ' - Marker 2'];
+
+                % Manually find threshold if needed
+                if max(max(Dapireg(:,:,ii))) > 0
+                    markerthreshold(Marker2stack_scaled(:,:,ii), Dapireg(:,:,ii),...
+                        M2order, figurename);
+                    uiwait()
+                    M2thresh = M2pix_sorted(lastpositive + 1);
+
+                end
+
+            end
+        end
         
-    else
-        % Manual
-        if M1thresh(ii) <= 0
-            figurename = ['Slice ', num2str(ii), ' - Marker 1'];
-
-            % Manually find threshold if needed
-            if max(max(Dapireg(:,:,ii))) > 0
-                markerthreshold(Marker1stack(:,:,ii), Dapireg(:,:,ii),...
-                    M1order, figurename);
-                uiwait()
-                M1thresh(ii) = M1pix_sorted(lastpositive);
-            else
-                M1thresh(ii) = NaN;
-            end
-
-
-        end
-
-        if M2thresh(ii) <= 0
-            figurename = ['Slice ', num2str(ii), ' - Marker 2'];
-
-            % Manually find threshold if needed
-            if max(max(Dapireg(:,:,ii))) > 0
-                markerthreshold(Marker2stack(:,:,ii), Dapireg(:,:,ii),...
-                    M2order, figurename);
-                uiwait()
-                M2thresh(ii) = M2pix_sorted(lastpositive);
-            else
-                M1thresh(ii) = NaN;
-            end
-
-        end
+        close(fM1, fM2)
     end
 
     % Load pixel values into cells
     M1pix_cell{ii} = M1pix;
     M2pix_cell{ii} = M2pix;
-
+    
+    
+    
 end
 
 
 %% Smooth threshold
-if Smooththresh == 1
-    M1thresh_s = smooth(M1thresh);
-    M2thresh_s = smooth(M2thresh);
-end
+% if Smooththresh == 1
+%     M1thresh_s = smooth(M1thresh);
+%     M2thresh_s = smooth(M2thresh);
+% end
+
+
 
 %% Consolidate data
 
@@ -245,14 +287,14 @@ for ii = 1 : nslices
     if Automarkerthresh < 1
         if Smooththresh < 1
             M1positive_master(istart:iend) =...
-                M1pix_cell{ii} >= M1thresh(ii);
+                M1pix_cell{ii} > M1thresh;
             M2positive_master(istart:iend) =...
-                M2pix_cell{ii} >= M2thresh(ii);
+                M2pix_cell{ii} > M2thresh;
         else
             M1positive_master(istart:iend) =...
-                M1pix_cell{ii} >= M1thresh_s(ii);
+                M1pix_cell{ii} > M1thresh_s(ii);
             M2positive_master(istart:iend) =...
-                M2pix_cell{ii} >= M2thresh_s(ii);
+                M2pix_cell{ii} > M2thresh_s(ii);
         end
       
     end
@@ -294,11 +336,17 @@ end
 Master_data_mat = [M1_slice_master, M1_cellind_master, Centroids_master, M1pix_master,...
     M2pix_master, inpoly_master, M1positive_master, M2positive_master];
 
+
+n_Marker1 = sum(Master_data_mat(:,7) .* Master_data_mat(:,8))
+n_Marker2 = sum(Master_data_mat(:,7) .* Master_data_mat(:,9))
+ntotal = sum(Master_data_mat(:,7))
+n_both = sum(Master_data_mat(:,7) .* Master_data_mat(:,8) .* Master_data_mat(:,9))
+chance = n_Marker1 * n_Marker2 / ntotal
 %% Make plot
 % scatter(mat2gray(M1pix_master), mat2gray(M2pix_master), [],...
 %     [M1positive_master*0.8, M2positive_master*0.6,zeros(sum(NROIs_master,1),1)])
 scatter(M1pix_master, M2pix_master, [],...
-    [M1positive_master*0.8, M2positive_master*0.6,zeros(sum(NROIs_master,1),1)])
+    [Master_data_mat(:,8)*0.8, Master_data_mat(:,9)*0.6,zeros(sum(NROIs_master,1),1)])
 xlabel(Marker1)
 ylabel(Marker2)
 
@@ -319,12 +367,12 @@ legend({Marker1, Marker2})
 %}
 
 %% Map
-
-if Smooththresh == 1 
-    Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh_s, M2thresh_s, NROIs_master)
-else
-    Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh, M2thresh, NROIs_master)
-end
+% 
+% if Smooththresh == 1 
+%     Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh_s, M2thresh_s, NROIs_master)
+% else
+%     Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh, M2thresh, NROIs_master)
+% end
 
 %% Save
 savefileid = fullfile(filepath,[Dapifile(1:end-3),'mat']);

@@ -5,8 +5,13 @@ Commonfilapath = 'D:\Dropbox\Crickmore_research\Images\Lim1\mouse brain 3-full S
 
 nfiles = length(matfiles);
 
+polyROIs = cell(nfiles,1);
+
 Master_data_cell = cell(nfiles,1);
 Master_data_mat_posthoc = [];
+
+M1threshvec = zeros(nfiles,1);
+M2threshvec = zeros(nfiles,1);
 
 
 for iii = 1 : nfiles
@@ -16,32 +21,43 @@ for iii = 1 : nfiles
        
     inroi_ind = Master_data_mat(:,7) == 1;
     
+    M1threshvec(iii) = M1thresh;
+    M2threshvec(iii) = M2thresh;
+    
     %Markermap( Dapireg, M1pix_cell, M2pix_cell, M1thresh_s, M2thresh_s, NROIs_master)
     %print(fullfile(filepath2, [filehandle(1:3),'_map.png']),'-dpng')
     
     if iii == 1
         Master_data_mat_posthoc = Master_data_mat(inroi_ind,:);
         counter = size(Master_data_mat_posthoc, 1);
+        
     else
         n2add = sum(inroi_ind);
         Master_data_mat_posthoc((counter+1) : (counter+n2add), :)  = ...
             Master_data_mat(inroi_ind,:);
         counter = counter + n2add;
+        
+
     end
         
     Master_data_cell{iii} = Master_data_mat(inroi_ind,:);
+    polyROIs{iii} = polyroi;
+       
 end
 
-keep Commonfilapath nfiles Master_data_cell Master_data_mat_posthoc matfiles filepath2
+keep Commonfilapath nfiles Master_data_cell Master_data_mat_posthoc...
+    matfiles filepath2 M1threshvec M2threshvec polyROIs
 %%
 M1fraction = zeros(nfiles,1);
 M2fraction = zeros(nfiles,1);
+Cofraction = zeros(nfiles,1);
 
 for iii = 1 : nfiles
-    currentstat = mean(Master_data_cell{iii});
+    currentstat = Master_data_cell{iii};
     
-    M1fraction(iii) = currentstat(1,8);
-    M2fraction(iii) = currentstat(1,9);
+    M1fraction(iii) = sum(currentstat(:,7) .* currentstat(:,8)) / sum(currentstat(:,7));
+    M2fraction(iii) = sum(currentstat(:,7) .* currentstat(:,9)) / sum(currentstat(:,7));
+    Cofraction(iii) = sum(currentstat(:,7) .* currentstat(:,8) .* currentstat(:,9)) / sum(currentstat(:,7));
 end
 %% Plot slice progression
 plot(1:nfiles,M1fraction, 1:nfiles,M2fraction)

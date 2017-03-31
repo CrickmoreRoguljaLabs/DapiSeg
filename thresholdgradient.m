@@ -47,7 +47,7 @@ ylabel('Area Std/Mean')
 xlabel('Threshold')
 
 % Find first threshold value where std = mean
-best_ind = find(ROIsizestd<1, 1, 'first');
+best_ind = find(ROIsizestd < 1, 1, 'first');
 
 % Outputs
 optimalthreshold = thresholds(best_ind);

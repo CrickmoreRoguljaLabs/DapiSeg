@@ -81,5 +81,5 @@ quiver(zeros(nfiles,1),zeros(nfiles,1),M2vecmat_scaled(:,1),M2vecmat_scaled(:,2)
 quiver(0,0,mean(M1vecmat_scaled(:,1)),mean(M1vecmat_scaled(:,2)),'b','LineWidth',4)
 quiver(0,0,mean(M2vecmat_scaled(:,1)),mean(M2vecmat_scaled(:,2)),'r','LineWidth',4)
 xlabel('Lateral -> Medial (um)')
-ylabel('Dorsal -> Medial (um)')
+ylabel('Ventral -> Dorsal (um)')
 hold off

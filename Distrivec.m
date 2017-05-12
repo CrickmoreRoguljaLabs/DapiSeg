@@ -1,7 +1,10 @@
 %% Load the variables that are used in this program
 
 % Individual plot or not
-indiplot = 1;
+indiplot = 0;
+
+% Interactions for calculating p values
+nIt = 10000;
 
 % Obtain the matrix
 [matfile, matpath] = uigetfile('D:\Dropbox\Brain 3 SCN mat files\*.mat', 'Select a workspace file from DapiSeg', 'MultiSelect', 'on');
@@ -15,7 +18,16 @@ end
 M1vecmat = zeros(nfiles,2);
 M2vecmat = zeros(nfiles,2);
 
+% Initiate a matrix containing all the pValues
+pM1vec = zeros(nfiles,1);
+pM2vec = zeros(nfiles,1);
+
+% Waitbar
+hwait = waitbar(0, 'Parsing data...');
+
 for i = 1 : nfiles
+    waitbar(i/nfiles);
+    
     if iscell(matfile)
         load(fullfile(matpath, matfile{i}), 'Master_data_mat', 'Dapistack', 'Marker1', 'Marker2')
     else
@@ -60,12 +72,20 @@ for i = 1 : nfiles
         % figure
         % imshow(max(Dapistack,[],3),[])
     end
+    
     % Load the values in the output matrix
     M1vecmat(i,:) = M1vec;
     M2vecmat(i,:) = M2vec;
     
+    % Calculate the p values of the vectors
+    M1_Vec_amp_Bt = DistrivecBT(Xall, Yall, sum(IndM1), nIt);
+    M2_Vec_amp_Bt = DistrivecBT(Xall, Yall, sum(IndM2), nIt);
+    pM1vec(i) = sum(M1_Vec_amp_Bt >= norm(M1vec))/nIt;
+    pM2vec(i) = sum(M2_Vec_amp_Bt >= norm(M2vec))/nIt;
+    
 end
 
+close(hwait)
 %% Conversion factors (convert from pixel to um)
 % There are probably outliers and you should write the values in;
 scaling_factor = ones(nfiles,2) / 1.6103;

@@ -1,6 +1,6 @@
 %% Load the variables that are used in this program
 
-[matfile, matpath] = uigetfile('*.mat', 'Select a workspace file from DapiSeg');
+[matfile, matpath] = uigetfile('D:\Dropbox\Brain 3 SCN mat files\*.mat', 'Select a workspace file from DapiSeg');
 load(fullfile(matpath, matfile), 'Master_data_mat', 'Dapistack', 'Marker1stack', 'Marker2stack', 'Marker1', 'Marker2')
 
 
@@ -23,7 +23,7 @@ MaxX = size(Marker2stack,1);
 n_M2 = length(M2_pos_ind);
 M2_pos_stack = zeros(expansionsize_real, expansionsize_real, n_M2);
 M2_pos_stack_dapi = zeros(expansionsize_real, expansionsize_real, n_M2);
-
+M2_pos_stack_M1 = zeros(expansionsize_real, expansionsize_real, n_M2);
 
 for ii = 1 : n_M2
     
@@ -51,14 +51,17 @@ for ii = 1 : n_M2
         YindU:YindD, sectionind);
     M2_pos_stack_dapi(Xstart:Xend,Ystart:Yend,ii) = Dapistack(XindL:XindR,...
         YindU:YindD, sectionind);
-%     M2_pos_stack_M1(Xstart:Xend,Ystart:Yend,ii) = Marker1stack(XindL:XindR,...
-%         YindU:YindD, sectionind);
+    M2_pos_stack_M1(Xstart:Xend,Ystart:Yend,ii) = Marker1stack(XindL:XindR,...
+        YindU:YindD, sectionind);
 end
 
-% stack2show = [M2_pos_stack_M1, M2_pos_stack, M2_pos_stack_dapi];
+
 % Play the stack if needed
-stack2show_M2 = [M2_pos_stack, M2_pos_stack_dapi];
-implay(stack2show_M2/1000)
+% [M2, Dapi]
+% stack2show_M2 = [M2_pos_stack, M2_pos_stack_dapi];
+% [M1, M2, Dapi]
+stack2show_M2 = [M2_pos_stack_M1, M2_pos_stack, M2_pos_stack_dapi];
+implay(stack2show_M2/2000)
 
 %% Make stack of all M1 positive cells
 % How many pixels to extend from each centroid
@@ -107,20 +110,20 @@ for ii = 1 : n_M1
         YindU:YindD, sectionind);
     M1_pos_stack_dapi(Xstart:Xend,Ystart:Yend,ii) = Dapistack(XindL:XindR,...
         YindU:YindD, sectionind);
-%     M2_pos_stack_M1(Xstart:Xend,Ystart:Yend,ii) = Marker1stack(XindL:XindR,...
-%         YindU:YindD, sectionind);
+
 end
 
 % stack2show = [M2_pos_stack_M1, M2_pos_stack, M2_pos_stack_dapi];
 % Play the stack if needed
 stack2show_M1 = [M1_pos_stack, M1_pos_stack_dapi];
-implay(stack2show_M1/1000)
+implay(stack2show_M1/3000)
 
 
 %% Make co-centric curves for M2
 % Prime the matricies containing 
 Vecmean_M2 = zeros(n_M2, expansionsize_real);
 Vecmean_M2_dapi = zeros(n_M2, expansionsize_real);
+Vecmean_M2_M1 = zeros(n_M2, expansionsize_real);
 
 
 for ii = 1 : n_M2
@@ -154,6 +157,16 @@ for ii = 1 : n_M2
     
     % Load Dapi values
     Vecmean_M2_dapi(ii,:) = mat2gray(mean([Vec1_dapi; Vec2_dapi'; Vec3_dapi; Vec4_dapi]));
+    
+    % Repeat for Marker 1
+    M2_pos_current_M1 = M2_pos_stack_M1(:,:,ii);
+    Vec1_M1 = M2_pos_current_M1(expansionsize + 1, :);
+    Vec2_M1 = M2_pos_current_M1(:, expansionsize + 1);
+    Vec3_M1 = M2_pos_current_M1(1 : expansionsize_real+1 : expansionsize_real^2);
+    Vec4_M1 = M2_pos_current_M1(expansionsize_real : expansionsize_real-1 : expansionsize_real^2-1);
+    
+    % Load Dapi values
+    Vecmean_M2_M1(ii,:) = mat2gray(mean([Vec1_M1; Vec2_M1'; Vec3_M1; Vec4_M1]));
 end
 
 
@@ -198,14 +211,15 @@ end
 
 
 %% Page views for Marker 2 Co-centric curves
+%{
 % Current page number, can change
-pagenum = 7;
+pagenum = 1;
 
 % Define the pages
 panelsperpage = 25;
 
 % Initiate the figure
-figure('Position',[50 50 1600 700])
+figure('Position',[20 50 1500 700])
 for i = 1 : panelsperpage
     
     % Subplot
@@ -228,16 +242,17 @@ for i = 1 : panelsperpage
     end
     
 end
-
+%}
 %% Page views for Marker 1 Co-centric curves
+%{
 % Current page number, can change
-pagenum = 6;
+pagenum = 1;
 
 % Define the pages
 panelsperpage = 25;
 
 % Initiate the figure
-figure('Position',[50 50 1600 700])
+figure('Position',[20 50 1500 700])
 for i = 1 : panelsperpage
     
     % Subplot
@@ -260,7 +275,7 @@ for i = 1 : panelsperpage
     end
     
 end
-
+%}
 
 
 %% Final calculations
@@ -268,27 +283,47 @@ end
 Co_pos_ind_M2 = Master_data_mat(M2_pos_ind,7); % In M2 index
 Co_pos_ind_M1 = Master_data_mat(M1_pos_ind,8); % In M1 index
 
+
 % Prime the vectors of the cytoplasmic cells
 cytovec_M1 = zeros(n_M1,1);
 cytovec_M2 = zeros(n_M2,1);
 
 % Enter the indices here
-cytoind_M1 = [5 96 106];
-cytoind_M2 = [23 24 45 88 112 122 123 142 157 164 175 212 221 237 239 265 292];
+% This part is changed by the user
+cytoind_M1 = [];
+cytoind_M2 = [30 36 44 45 48 49 58 60 129 137 154 155 165 174 175 191 201 213 221 304];
 
+
+
+
+
+ 
+%%
 % Make a figure of all Marker 2 cytoplasmic cells
-figure('Position',[20 50 1600 700])
+figure('Position',[20 50 1500 700])
 for i = 1 : length(cytoind_M2)
     % Subplot
-    subplot(5,5,i)
+    if i <= 25
+        subplot(5,5,i)
+    end
     
     % Take care of the panel ID and the vector
     panelind = cytoind_M2(i);
     cytovec_M2(panelind) = 1;
     
-    if panelind <= n_M2
+    if panelind <= n_M2 && i <= 25
         % Plot the curves
-        plot(1:expansionsize_real, Vecmean_M2(panelind,:),1:expansionsize_real, Vecmean_M2_dapi(panelind,:))
+        if Co_pos_ind_M2(i) == 1
+            % If Marker1 is positive, plot Marker1 as well
+            plot(1:expansionsize_real, Vecmean_M2(panelind,:),...
+                1:expansionsize_real, Vecmean_M2_dapi(panelind,:),...
+                1:expansionsize_real, Vecmean_M2_M1(panelind,:))
+            legend({Marker2;'Dapi';Marker1})
+        else
+            % If Marker1 is not positive, don't plot Marker 1
+            plot(1:expansionsize_real, Vecmean_M2(panelind,:),...
+                1:expansionsize_real, Vecmean_M2_dapi(panelind,:))
+        end
         set(gca,'XTick',[]);
         
         % Use Marker 2 ID
@@ -303,7 +338,7 @@ for i = 1 : length(cytoind_M2)
 end
 
 % Make a figure of all Marker 1 cytoplasmic cells
-figure('Position',[20 50 1600 700])
+figure('Position',[20 50 1500 700])
 for i = 1 : length(cytoind_M1)
     % Subplot
     subplot(5,5,i)
@@ -328,6 +363,7 @@ for i = 1 : length(cytoind_M1)
     
 end
 
+%% Calculations
 % Display the calculations
 disp('Total number of cells:')
 sum(Master_data_mat(:,5)>0)
@@ -346,11 +382,34 @@ length(cytoind_M2)
 
 disp('Total number of double-positive and cytoplasmic-LHX1 cells:')
 sum(cytovec_M2.*Co_pos_ind_M2)
-find((cytovec_M2.*Co_pos_ind_M2)>0)
+% find((cytovec_M2.*Co_pos_ind_M2)>0)
 
 disp('Total number of cytoplasmic-LM3 cells:')
 length(cytoind_M1)
 
 disp('Total number of double-positive and cytoplasmic-LMO3 cells:')
 sum(cytovec_M1.*Co_pos_ind_M1)
-find((cytovec_M1.*Co_pos_ind_M1)>0)
+% find((cytovec_M1.*Co_pos_ind_M1)>0)
+
+%%
+%{
+TempM2 = [Master_data_mat(M2_pos_ind,:),cytovec_M2];
+TempM1 = [Master_data_mat(M1_pos_ind,:),cytovec_M1];
+
+
+A=TempM1;
+size(A,1);
+B=A(A(:,8)==1,:);
+C=A(A(:,8)==0,:);
+
+[~,Brank] = sort(B(:,6),'descend');
+Bsorted = B(Brank,:);
+quartilesize = round(size(B,1)/4);
+B1 = mean(Bsorted(1:quartilesize,9));
+B2 = mean(Bsorted((quartilesize+1) : (quartilesize * 2),9));
+B3 = mean(Bsorted((2*quartilesize+1) : (quartilesize * 3),9));
+B4 = mean(Bsorted((3*quartilesize+1) : end,9));
+C1 = mean(C(:,9));
+
+[B1; B2; B3; B4; C1]
+%}
